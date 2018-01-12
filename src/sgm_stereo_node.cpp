@@ -123,12 +123,12 @@ protected:
 };
 
 StereoSGMNode::StereoSGMNode() :
-  left_image_sub_(nh_, "left/image_rect", 10),
-  right_image_sub_(nh_, "right/image_rect", 10),
-  left_info_sub_(nh_, "left/camera_info", 10),
-  right_info_sub_(nh_, "right/camera_info", 10)
+  left_image_sub_(nh_, "left/image_rect", 1),
+  right_image_sub_(nh_, "right/image_rect", 1),
+  left_info_sub_(nh_, "left/camera_info", 1),
+  right_info_sub_(nh_, "right/camera_info", 1)
 {
-  sync_.reset(new Synchronizer(ImageSyncPolicy(10), left_image_sub_, right_image_sub_, left_info_sub_, right_info_sub_)),
+  sync_.reset(new Synchronizer(ImageSyncPolicy(5), left_image_sub_, right_image_sub_, left_info_sub_, right_info_sub_)),
   sync_->registerCallback(boost::bind(&StereoSGMNode::callback, this, _1, _2, _3, _4));
 
   pub_disparity_ = nh_.advertise<stereo_msgs::DisparityImage>("disparity", 1);
