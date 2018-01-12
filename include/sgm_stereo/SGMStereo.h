@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <png++/png.hpp>
+#include <opencv2/core/core.hpp>
 
 class SGMStereo {
 public:
@@ -33,20 +33,14 @@ public:
 	void setConsistencyThreshold(const int consistencyThreshold);
 	void setEnforceLeftRightConsistency(const bool enforceLeftRightConsistency);
 
-	void compute(const png::image<png::rgb_pixel>& leftImage,
-				 const png::image<png::rgb_pixel>& rightImage,
-				 float* disparityImage);
+	void compute(const cv::Mat& leftImage, const cv::Mat& rightImage, float* disparityImage);
 
 private:
-	void initialize(const png::image<png::rgb_pixel>& leftImage, const png::image<png::rgb_pixel>& rightImage);
-	void setImageSize(const png::image<png::rgb_pixel>& leftImage, const png::image<png::rgb_pixel>& rightImage);
+	void initialize(const cv::Mat& leftImage, const cv::Mat& rightImage);
+	void setImageSize(const cv::Mat& leftImage, const cv::Mat& rightImage);
 	void allocateDataBuffer();
 	void freeDataBuffer();
-	void computeCostImage(const png::image<png::rgb_pixel>& leftImage, const png::image<png::rgb_pixel>& rightImage);
-	void convertToGrayscale(const png::image<png::rgb_pixel>& leftImage,
-							const png::image<png::rgb_pixel>& rightImage,
-							unsigned char* leftGrayscaleImage,
-							unsigned char* rightGrayscaleImage) const;
+	void computeCostImage(const cv::Mat& leftImage, const cv::Mat& rightImage);
 	void computeLeftCostImage(const unsigned char* leftGrayscaleImage, const unsigned char* rightGrayscaleImage);
 	void computeCappedSobelImage(const unsigned char* image, const bool horizontalFlip, unsigned char* sobelImage) const;
 	void computeCensusImage(const unsigned char* image, int* censusImage) const;

@@ -107,9 +107,7 @@ void SGMStereo::setEnforceLeftRightConsistency(const bool enforceLeftRightConsis
 	enforceLeftRightConsistency_ = enforceLeftRightConsistency;
 }
 
-void SGMStereo::compute(const png::image<png::rgb_pixel>& leftImage,
-						const png::image<png::rgb_pixel>& rightImage,
-						float* disparityImage)
+void SGMStereo::compute(const cv::Mat& leftImage, const cv::Mat& rightImage, float* disparityImage)
 {
 	initialize(leftImage, rightImage);
 
@@ -140,15 +138,15 @@ void SGMStereo::compute(const png::image<png::rgb_pixel>& leftImage,
 }
 
 
-void SGMStereo::initialize(const png::image<png::rgb_pixel>& leftImage, const png::image<png::rgb_pixel>& rightImage) {
+void SGMStereo::initialize(const cv::Mat& leftImage, const cv::Mat& rightImage) {
 	setImageSize(leftImage, rightImage);
 	allocateDataBuffer();
 }
 
-void SGMStereo::setImageSize(const png::image<png::rgb_pixel>& leftImage, const png::image<png::rgb_pixel>& rightImage) {
-	width_ = static_cast<int>(leftImage.get_width());
-	height_ = static_cast<int>(leftImage.get_height());
-	if (rightImage.get_width() != width_ || rightImage.get_height() != height_) {
+void SGMStereo::setImageSize(const cv::Mat& leftImage, const cv::Mat& rightImage) {
+	width_ = static_cast<int>(leftImage.cols);
+	height_ = static_cast<int>(leftImage.rows);
+	if (rightImage.cols != width_ || rightImage.rows != height_) {
 		throw std::invalid_argument("[SGMStereo::setImageSize] sizes of left and right images are different");
 	}
 	widthStep_ = width_ + 15 - (width_ - 1)%16;
@@ -191,35 +189,13 @@ void SGMStereo::freeDataBuffer() {
 	_mm_free(sgmBuffer_);
 }
 
-void SGMStereo::computeCostImage(const png::image<png::rgb_pixel>& leftImage, const png::image<png::rgb_pixel>& rightImage) {
-	unsigned char* leftGrayscaleImage = reinterpret_cast<unsigned char*>(malloc(width_*height_*sizeof(unsigned char)));
-	unsigned char* rightGrayscaleImage = reinterpret_cast<unsigned char*>(malloc(width_*height_*sizeof(unsigned char)));
-	convertToGrayscale(leftImage, rightImage, leftGrayscaleImage, rightGrayscaleImage);
-
+void SGMStereo::computeCostImage(const cv::Mat& leftImage, const cv::Mat& rightImage) {
 	memset(leftCostImage_, 0, width_*height_*disparityTotal_*sizeof(unsigned short));
-	computeLeftCostImage(leftGrayscaleImage, rightGrayscaleImage);
+	computeLeftCostImage(leftImage.data, rightImage.data);
 
 	computeRightCostImage();
-
-	free(leftGrayscaleImage);
-	free(rightGrayscaleImage);
 }
 
-
-void SGMStereo::convertToGrayscale(const png::image<png::rgb_pixel>& leftImage,
-								   const png::image<png::rgb_pixel>& rightImage,
-								   unsigned char* leftGrayscaleImage,
-								   unsigned char* rightGrayscaleImage) const
-{
-	for (int y = 0; y < height_; ++y) {
-		for (int x = 0; x < width_; ++x) {
-			png::rgb_pixel pix = leftImage.get_pixel(x, y);
-			leftGrayscaleImage[width_*y + x] = static_cast<unsigned char>(0.299*pix.red + 0.587*pix.green + 0.114*pix.blue + 0.5);
-			pix = rightImage.get_pixel(x, y);
-			rightGrayscaleImage[width_*y + x] = static_cast<unsigned char>(0.299*pix.red + 0.587*pix.green + 0.114*pix.blue + 0.5);
-		}
-	}
-}
 
 void SGMStereo::computeLeftCostImage(const unsigned char* leftGrayscaleImage, const unsigned char* rightGrayscaleImage) {
 	unsigned char* leftSobelImage = reinterpret_cast<unsigned char*>(_mm_malloc(widthStep_*height_*sizeof(unsigned char), 16));
