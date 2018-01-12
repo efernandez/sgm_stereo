@@ -133,6 +133,13 @@ StereoSGMNode::StereoSGMNode() :
     return;
   }
 
+  ros::NodeHandle nh_priv("~");
+
+  bool enforce_left_right_consistency = true;
+  nh_priv.param("enforce_left_right_consistency", enforce_left_right_consistency, enforce_left_right_consistency);
+
+  sgm.setEnforceLeftRightConsistency(enforce_left_right_consistency);
+
   sgm.initialize(l_image_msg->width, l_image_msg->height);
 
   sync_.reset(new Synchronizer(ImageSyncPolicy(5), left_image_sub_, right_image_sub_, left_info_sub_, right_info_sub_)),
