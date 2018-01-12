@@ -12,7 +12,6 @@ if (OPENMP_FOUND)
 endif()
 
 find_package(OpenCV REQUIRED)
-find_package(PNG REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
@@ -39,16 +38,15 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${PNG_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
 )
 
 add_executable(sgm_stereo_node src/sgm_stereo_node.cpp src/SGMStereo.cpp)
 target_compile_options(sgm_stereo_node PRIVATE ${OpenMP_FLAGS})
 add_dependencies(sgm_stereo_node ${catkin_EXPORTED_TARGETS})
-target_link_libraries(sgm_stereo_node ${catkin_LIBRARIES} ${PNG_LIBRARY} ${OpenCV_LIBS} ${OpenMP_LIBS})
+target_link_libraries(sgm_stereo_node ${catkin_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
 
 add_library(sgm_stereo src/SGMStereo.cpp)
 target_compile_options(sgm_stereo PRIVATE ${OpenMP_FLAGS})
 add_dependencies(sgm_stereo ${catkin_EXPORTED_TARGETS})
-target_link_libraries(sgm_stereo ${catkin_LIBRARIES} ${PNG_LIBRARY} ${OpenCV_LIBS} ${OpenMP_LIBS})
+target_link_libraries(sgm_stereo ${catkin_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
