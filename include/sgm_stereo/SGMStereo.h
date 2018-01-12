@@ -31,6 +31,7 @@ public:
 							   const int aggregationWindowRadius);
 	void setSmoothnessCostParameters(const int smoothnessPenaltySmall, const int smoothnessPenaltyLarge);
 	void setConsistencyThreshold(const int consistencyThreshold);
+	void setEnforceLeftRightConsistency(const bool enforceLeftRightConsistency);
 
 	void compute(const png::image<png::rgb_pixel>& leftImage,
 				 const png::image<png::rgb_pixel>& rightImage,
@@ -74,6 +75,7 @@ private:
 	int smoothnessPenaltySmall_;
 	int smoothnessPenaltyLarge_;
 	int consistencyThreshold_;
+	bool enforceLeftRightConsistency_;
 
 	// Data
 	int width_;

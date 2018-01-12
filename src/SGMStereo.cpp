@@ -34,6 +34,7 @@ const int SGMSTEREO_DEFAULT_AGGREGATION_WINDOW_RADIUS = 2;
 const int SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_SMALL = 100;
 const int SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_LARGE = 1600;
 const int SGMSTEREO_DEFAULT_CONSISTENCY_THRESHOLD = 1;
+const bool SGMSTEREO_DEFAULT_ENFORCE_LEFT_RIGHT_CONSISTENCY = true;
 
 SGMStereo::SGMStereo() : disparityTotal_(SGMSTEREO_DEFAULT_DISPARITY_TOTAL),
 						 disparityFactor_(SGMSTEREO_DEFAULT_DISPARITY_FACTOR),
@@ -43,7 +44,8 @@ SGMStereo::SGMStereo() : disparityTotal_(SGMSTEREO_DEFAULT_DISPARITY_TOTAL),
 						 aggregationWindowRadius_(SGMSTEREO_DEFAULT_AGGREGATION_WINDOW_RADIUS),
 						 smoothnessPenaltySmall_(SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_SMALL),
 						 smoothnessPenaltyLarge_(SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_LARGE),
-						 consistencyThreshold_(SGMSTEREO_DEFAULT_CONSISTENCY_THRESHOLD) {}
+						 consistencyThreshold_(SGMSTEREO_DEFAULT_CONSISTENCY_THRESHOLD),
+						 enforceLeftRightConsistency_(SGMSTEREO_DEFAULT_ENFORCE_LEFT_RIGHT_CONSISTENCY){}
 
 void SGMStereo::setDisparityTotal(const int disparityTotal) {
 	if (disparityTotal <= 0 || disparityTotal%16 != 0) {
@@ -101,6 +103,10 @@ void SGMStereo::setConsistencyThreshold(const int consistencyThreshold) {
 	consistencyThreshold_ = consistencyThreshold;
 }
 
+void SGMStereo::setEnforceLeftRightConsistency(const bool enforceLeftRightConsistency) {
+	enforceLeftRightConsistency_ = enforceLeftRightConsistency;
+}
+
 void SGMStereo::compute(const png::image<png::rgb_pixel>& leftImage,
 						const png::image<png::rgb_pixel>& rightImage,
 						float* disparityImage)
@@ -111,11 +117,17 @@ void SGMStereo::compute(const png::image<png::rgb_pixel>& leftImage,
 
 	unsigned short* leftDisparityImage = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
 	performSGM(leftCostImage_, leftDisparityImage);
-	unsigned short* rightDisparityImage = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
 
-	performSGM(rightCostImage_, rightDisparityImage);
+	if (enforceLeftRightConsistency_)
+	{
+		unsigned short* rightDisparityImage = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
 
-	enforceLeftRightConsistency(leftDisparityImage, rightDisparityImage);
+		performSGM(rightCostImage_, rightDisparityImage);
+
+		enforceLeftRightConsistency(leftDisparityImage, rightDisparityImage);
+
+		free(rightDisparityImage);
+	}
 
 	for (int y = 0; y < height_; ++y) {
 		for (int x = 0; x < width_; ++x) {
@@ -125,7 +137,6 @@ void SGMStereo::compute(const png::image<png::rgb_pixel>& leftImage,
 
 	freeDataBuffer();
 	free(leftDisparityImage);
-	free(rightDisparityImage);
 }
 
 
