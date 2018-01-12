@@ -133,6 +133,13 @@ StereoSGMNode::StereoSGMNode() :
 
   pub_disparity_ = nh_.advertise<stereo_msgs::DisparityImage>("disparity", 1);
   pub_pcl_ = nh_.advertise<sensor_msgs::PointCloud2>("points2", 1);
+
+  ros::NodeHandle nh_priv("~");
+
+  bool enforce_left_right_consistency = true;
+  nh_priv.param("enforce_left_right_consistency", enforce_left_right_consistency, enforce_left_right_consistency);
+
+  sgm.setEnforceLeftRightConsistency(enforce_left_right_consistency);
 }
 
 void StereoSGMNode::getOpenCVImage(const sensor_msgs::ImageConstPtr& ros_img, cv::Mat& opencv_img)
