@@ -5,14 +5,6 @@ project(sgm_stereo)
 add_definitions(-std=c++11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -msse4.2 -msse3 -msse2")
 
-find_package(OpenMP)
-if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif()
-
-find_package(OpenCV REQUIRED)
-
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_geometry
@@ -24,11 +16,12 @@ find_package(catkin REQUIRED COMPONENTS
   stereo_image_proc
 )
 
+find_package(OpenCV REQUIRED)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES sgm_stereo
   CATKIN_DEPENDS cv_bridge image_geometry image_transport message_filters roscpp sensor_msgs stereo_image_proc
-  DEPENDS system_lib OpenMP
 )
 
 ###########
@@ -42,11 +35,10 @@ include_directories(
 )
 
 add_executable(sgm_stereo_node src/sgm_stereo_node.cpp src/SGMStereo.cpp)
-target_compile_options(sgm_stereo_node PRIVATE ${OpenMP_FLAGS})
+target_compile_options(sgm_stereo_node PRIVATE)
 add_dependencies(sgm_stereo_node ${catkin_EXPORTED_TARGETS})
-target_link_libraries(sgm_stereo_node ${catkin_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
+target_link_libraries(sgm_stereo_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 add_library(sgm_stereo src/SGMStereo.cpp)
-target_compile_options(sgm_stereo PRIVATE ${OpenMP_FLAGS})
 add_dependencies(sgm_stereo ${catkin_EXPORTED_TARGETS})
-target_link_libraries(sgm_stereo ${catkin_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
+target_link_libraries(sgm_stereo ${catkin_LIBRARIES} ${OpenCV_LIBS})
