@@ -34,6 +34,7 @@ const int SGMSTEREO_DEFAULT_AGGREGATION_WINDOW_RADIUS = 2;
 const int SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_SMALL = 100;
 const int SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_LARGE = 1600;
 const int SGMSTEREO_DEFAULT_CONSISTENCY_THRESHOLD = 1;
+const bool SGMSTEREO_DEFAULT_ENFORCE_LEFT_RIGHT_CONSISTENCY = true;
 
 SGMStereo::SGMStereo() : disparityTotal_(SGMSTEREO_DEFAULT_DISPARITY_TOTAL),
 						 disparityFactor_(SGMSTEREO_DEFAULT_DISPARITY_FACTOR),
@@ -44,6 +45,7 @@ SGMStereo::SGMStereo() : disparityTotal_(SGMSTEREO_DEFAULT_DISPARITY_TOTAL),
 						 smoothnessPenaltySmall_(SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_SMALL),
 						 smoothnessPenaltyLarge_(SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_LARGE),
 						 consistencyThreshold_(SGMSTEREO_DEFAULT_CONSISTENCY_THRESHOLD),
+						 enforceLeftRightConsistency_(SGMSTEREO_DEFAULT_ENFORCE_LEFT_RIGHT_CONSISTENCY),
 						 width_(0),
 						 height_(0),
 						 initialized_(false){}
@@ -111,6 +113,11 @@ void SGMStereo::setConsistencyThreshold(const int consistencyThreshold) {
 	consistencyThreshold_ = consistencyThreshold;
 }
 
+void SGMStereo::setEnforceLeftRightConsistency(const bool enforceLeftRightConsistency) {
+	enforceLeftRightConsistency_ = enforceLeftRightConsistency;
+}
+
+
 void SGMStereo::initialize(const int width, const int height) {
 	if (initialized_)
 	{
@@ -136,9 +143,12 @@ void SGMStereo::compute(const cv::Mat& leftImage, const cv::Mat& rightImage, flo
 
 	performSGM(leftCostImage_, leftDisparityImage_);
 
-	performSGM(rightCostImage_, rightDisparityImage_);
+	if (enforceLeftRightConsistency_)
+	{
+		performSGM(rightCostImage_, rightDisparityImage_);
 
-	enforceLeftRightConsistency(leftDisparityImage_, rightDisparityImage_);
+		enforceLeftRightConsistency(leftDisparityImage_, rightDisparityImage_);
+	}
 
 	for (int y = 0; y < height_; ++y) {
 		for (int x = 0; x < width_; ++x) {
@@ -181,7 +191,11 @@ void SGMStereo::allocateDataBuffer() {
 	sgmBuffer_ = reinterpret_cast<short*>(_mm_malloc(totalBufferSize_*sizeof(short), 16));
 
 	leftDisparityImage_ = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
-	rightDisparityImage_ = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
+
+	if (enforceLeftRightConsistency_)
+	{
+		rightDisparityImage_ = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
+	}
 
 	leftSobelImage_ = reinterpret_cast<unsigned char*>(_mm_malloc(widthStep_*height_*sizeof(unsigned char), 16));
 	rightSobelImage_ = reinterpret_cast<unsigned char*>(_mm_malloc(widthStep_*height_*sizeof(unsigned char), 16));
@@ -200,7 +214,11 @@ void SGMStereo::freeDataBuffer() {
 	_mm_free(sgmBuffer_);
 
 	free(leftDisparityImage_);
-	free(rightDisparityImage_);
+
+	if (enforceLeftRightConsistency_)
+	{
+		free(rightDisparityImage_);
+	}
 
 	_mm_free(leftSobelImage_);
 	_mm_free(rightSobelImage_);
