@@ -169,7 +169,6 @@ void StereoSGMNode::computeSGMStereoDisparity(const sensor_msgs::ImageConstPtr& 
   cv::Mat disparity_uc;
   disparity.convertTo(disparity_uc, CV_8UC1);
 
-  // disp_msg  = boost::make_shared<stereo_msgs::DisparityImage>();
   disp_msg.header            = l_image_msg->header;
 
   disp_msg.f                 = model.left().fx();
