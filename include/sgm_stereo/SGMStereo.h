@@ -32,6 +32,7 @@ public:
 							   const int aggregationWindowRadius);
 	void setSmoothnessCostParameters(const int smoothnessPenaltySmall, const int smoothnessPenaltyLarge);
 	void setConsistencyThreshold(const int consistencyThreshold);
+	void setEnforceLeftRightConsistency(const bool enforceLeftRightConsistency);
 
 	void initialize(const int width, const int height);
 	void compute(const cv::Mat& leftImage, const cv::Mat& rightImage, float* disparityImage);
@@ -69,6 +70,7 @@ private:
 	int smoothnessPenaltySmall_;
 	int smoothnessPenaltyLarge_;
 	int consistencyThreshold_;
+	bool enforceLeftRightConsistency_;
 
 	// Data
 	int width_;

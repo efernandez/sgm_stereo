@@ -1,6 +1,7 @@
 <launch>
 
   <arg name="camera" default="stereo" />
+  <arg name="enforce_left_right_consistency" default="true"/>
 
   <node name="sgm_stereo" pkg="sgm_stereo" type="sgm_stereo_node">
     <remap from="left/image_rect" to="$(arg camera)/left/image_rect" />
@@ -9,6 +10,8 @@
     <remap from="right/camera_info" to="$(arg camera)/right/camera_info" />
     <remap from="disparity" to="$(arg camera)/disparity" />
     <remap from="points2" to="$(arg camera)/points2" />
+
+    <param name="enforce_left_right_consistency" value="$(arg enforce_left_right_consistency)"/>
   </node>
 
 </launch>
