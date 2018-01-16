@@ -440,7 +440,7 @@ void SGMStereo::calcPixelwiseSAD(const unsigned char* leftSobelRow, const unsign
 	}
 	for (int x = 16; x < disparityTotal_; ++x) {
 		int leftCenterValue = leftSobelRow[x];
-		int leftHalfLeftValue = x > 0 ? (leftCenterValue + leftSobelRow[x - 1])/2 : leftCenterValue;
+		int leftHalfLeftValue = (leftCenterValue + leftSobelRow[x - 1])/2;
 		int leftHalfRightValue = x < width_ - 1 ? (leftCenterValue + leftSobelRow[x + 1])/2 : leftCenterValue;
 		int leftMinValue = std::min(leftHalfLeftValue, leftHalfRightValue);
 		leftMinValue = std::min(leftMinValue, leftCenterValue);
@@ -483,7 +483,7 @@ void SGMStereo::calcPixelwiseSAD(const unsigned char* leftSobelRow, const unsign
 	}
 	for (int x = disparityTotal_; x < width_; ++x) {
 		int leftCenterValue = leftSobelRow[x];
-		int leftHalfLeftValue = x > 0 ? (leftCenterValue + leftSobelRow[x - 1])/2 : leftCenterValue;
+		int leftHalfLeftValue = (leftCenterValue + leftSobelRow[x - 1])/2;
 		int leftHalfRightValue = x < width_ - 1 ? (leftCenterValue + leftSobelRow[x + 1])/2 : leftCenterValue;
 		int leftMinValue = std::min(leftHalfLeftValue, leftHalfRightValue);
 		leftMinValue = std::min(leftMinValue, leftCenterValue);
