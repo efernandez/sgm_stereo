@@ -97,6 +97,11 @@ protected:
   ros::NodeHandle nh_;
   std::string image_encoding_;
 
+  message_filters::Subscriber<sensor_msgs::Image> left_image_sub_;
+  message_filters::Subscriber<sensor_msgs::Image> right_image_sub_;
+  message_filters::Subscriber<sensor_msgs::CameraInfo> left_info_sub_;
+  message_filters::Subscriber<sensor_msgs::CameraInfo> right_info_sub_;
+
   // Sync Policy for Images
   typedef message_filters::sync_policies::ApproximateTime<
     sensor_msgs::Image, sensor_msgs::Image,
@@ -104,11 +109,6 @@ protected:
 
   typedef message_filters::Synchronizer<ImageSyncPolicy> Synchronizer;
   boost::shared_ptr<Synchronizer> sync_;
-
-  message_filters::Subscriber<sensor_msgs::Image> left_image_sub_;
-  message_filters::Subscriber<sensor_msgs::Image> right_image_sub_;
-  message_filters::Subscriber<sensor_msgs::CameraInfo> left_info_sub_;
-  message_filters::Subscriber<sensor_msgs::CameraInfo> right_info_sub_;
 
   image_geometry::StereoCameraModel model_;
 
