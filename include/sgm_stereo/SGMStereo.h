@@ -22,6 +22,7 @@
 class SGMStereo {
 public:
 	SGMStereo();
+	~SGMStereo();
 
 	void setDisparityTotal(const int disparityTotal);
 	void setDisparityFactor(const double disparityFactor);
@@ -32,11 +33,11 @@ public:
 	void setSmoothnessCostParameters(const int smoothnessPenaltySmall, const int smoothnessPenaltyLarge);
 	void setConsistencyThreshold(const int consistencyThreshold);
 
+	void initialize(const int width, const int height);
 	void compute(const cv::Mat& leftImage, const cv::Mat& rightImage, float* disparityImage);
 
 private:
-	void initialize(const cv::Mat& leftImage, const cv::Mat& rightImage);
-	void setImageSize(const cv::Mat& leftImage, const cv::Mat& rightImage);
+	void setImageSize(const int width, const int height);
 	void allocateDataBuffer();
 	void freeDataBuffer();
 	void computeCostImage(const cv::Mat& leftImage, const cv::Mat& rightImage);
@@ -89,4 +90,11 @@ private:
 	int pathCostBufferSize_;
 	int totalBufferSize_;
 	short* sgmBuffer_;
+	unsigned short* leftDisparityImage_;
+	unsigned short* rightDisparityImage_;
+	unsigned char* leftSobelImage_;
+	unsigned char* rightSobelImage_;
+	int* leftCensusImage_;
+	int* rightCensusImage_;
+	bool initialized_;
 };

@@ -27,6 +27,7 @@
 
 // ROS Includes
 #include <ros/ros.h>
+#include <ros/topic.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
@@ -121,6 +122,19 @@ StereoSGMNode::StereoSGMNode() :
   left_info_sub_(nh_, "left/camera_info", 1),
   right_info_sub_(nh_, "right/camera_info", 1)
 {
+  const auto l_image_msg = ros::topic::waitForMessage<sensor_msgs::Image>(left_image_sub_.getTopic(), nh_);
+  const auto r_image_msg = ros::topic::waitForMessage<sensor_msgs::Image>(right_image_sub_.getTopic(), nh_);
+
+  if (l_image_msg->width != r_image_msg->width || l_image_msg->height != r_image_msg->height)
+  {
+    ROS_FATAL_STREAM("Left " << l_image_msg->width << "x" << l_image_msg->height <<
+        " and Right " << r_image_msg->width << "x" << r_image_msg->height << " images do NOT have the same size!");
+    ros::shutdown();
+    return;
+  }
+
+  sgm.initialize(l_image_msg->width, l_image_msg->height);
+
   sync_.reset(new Synchronizer(ImageSyncPolicy(5), left_image_sub_, right_image_sub_, left_info_sub_, right_info_sub_)),
   sync_->registerCallback(boost::bind(&StereoSGMNode::callback, this, _1, _2, _3, _4));
 
@@ -155,7 +169,6 @@ void StereoSGMNode::computeSGMStereoDisparity(const sensor_msgs::ImageConstPtr& 
   cv::Mat disparity_uc;
   disparity.convertTo(disparity_uc, CV_8UC1);
 
-  // disp_msg  = boost::make_shared<stereo_msgs::DisparityImage>();
   disp_msg.header            = l_image_msg->header;
 
   disp_msg.f                 = model.left().fx();

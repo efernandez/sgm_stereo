@@ -43,7 +43,17 @@ SGMStereo::SGMStereo() : disparityTotal_(SGMSTEREO_DEFAULT_DISPARITY_TOTAL),
 						 aggregationWindowRadius_(SGMSTEREO_DEFAULT_AGGREGATION_WINDOW_RADIUS),
 						 smoothnessPenaltySmall_(SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_SMALL),
 						 smoothnessPenaltyLarge_(SGMSTEREO_DEFAULT_SMOOTHNESS_PENALTY_LARGE),
-						 consistencyThreshold_(SGMSTEREO_DEFAULT_CONSISTENCY_THRESHOLD) {}
+						 consistencyThreshold_(SGMSTEREO_DEFAULT_CONSISTENCY_THRESHOLD),
+						 width_(0),
+						 height_(0),
+						 initialized_(false){}
+
+SGMStereo::~SGMStereo() {
+	if (initialized_)
+	{
+		freeDataBuffer();
+	}
+}
 
 void SGMStereo::setDisparityTotal(const int disparityTotal) {
 	if (disparityTotal <= 0 || disparityTotal%16 != 0) {
@@ -101,43 +111,46 @@ void SGMStereo::setConsistencyThreshold(const int consistencyThreshold) {
 	consistencyThreshold_ = consistencyThreshold;
 }
 
-void SGMStereo::compute(const cv::Mat& leftImage, const cv::Mat& rightImage, float* disparityImage)
-{
-	initialize(leftImage, rightImage);
-
-	computeCostImage(leftImage, rightImage);
-
-	unsigned short* leftDisparityImage = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
-	performSGM(leftCostImage_, leftDisparityImage);
-	unsigned short* rightDisparityImage = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
-
-	performSGM(rightCostImage_, rightDisparityImage);
-
-	enforceLeftRightConsistency(leftDisparityImage, rightDisparityImage);
-
-	for (int y = 0; y < height_; ++y) {
-		for (int x = 0; x < width_; ++x) {
-			disparityImage[width_*y + x] = static_cast<float>(leftDisparityImage[width_*y + x]/disparityFactor_);
+void SGMStereo::initialize(const int width, const int height) {
+	if (initialized_)
+	{
+		if (width == width_ && height == height_)
+		{
+			return;
+		}
+		else
+		{
+			freeDataBuffer();
 		}
 	}
 
-	freeDataBuffer();
-	free(leftDisparityImage);
-	free(rightDisparityImage);
-}
-
-
-void SGMStereo::initialize(const cv::Mat& leftImage, const cv::Mat& rightImage) {
-	setImageSize(leftImage, rightImage);
+	setImageSize(width, height);
 	allocateDataBuffer();
+
+	initialized_ = true;
 }
 
-void SGMStereo::setImageSize(const cv::Mat& leftImage, const cv::Mat& rightImage) {
-	width_ = static_cast<int>(leftImage.cols);
-	height_ = static_cast<int>(leftImage.rows);
-	if (rightImage.cols != width_ || rightImage.rows != height_) {
-		throw std::invalid_argument("[SGMStereo::setImageSize] sizes of left and right images are different");
+void SGMStereo::compute(const cv::Mat& leftImage, const cv::Mat& rightImage, float* disparityImage)
+{
+	computeCostImage(leftImage, rightImage);
+
+	performSGM(leftCostImage_, leftDisparityImage_);
+
+	performSGM(rightCostImage_, rightDisparityImage_);
+
+	enforceLeftRightConsistency(leftDisparityImage_, rightDisparityImage_);
+
+	for (int y = 0; y < height_; ++y) {
+		for (int x = 0; x < width_; ++x) {
+			disparityImage[width_*y + x] = static_cast<float>(leftDisparityImage_[width_*y + x]/disparityFactor_);
+		}
 	}
+}
+
+
+void SGMStereo::setImageSize(const int width, const int height) {
+	width_ = width;
+	height_ = height;
 	widthStep_ = width_ + 15 - (width_ - 1)%16;
 }
 
@@ -166,6 +179,15 @@ void SGMStereo::allocateDataBuffer() {
 	totalBufferSize_ = (pathMinCostBufferSize_ + pathCostBufferSize_)*pathRowBufferTotal_ + costSumBufferSize_ + 16;
 
 	sgmBuffer_ = reinterpret_cast<short*>(_mm_malloc(totalBufferSize_*sizeof(short), 16));
+
+	leftDisparityImage_ = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
+	rightDisparityImage_ = reinterpret_cast<unsigned short*>(malloc(width_*height_*sizeof(unsigned short)));
+
+	leftSobelImage_ = reinterpret_cast<unsigned char*>(_mm_malloc(widthStep_*height_*sizeof(unsigned char), 16));
+	rightSobelImage_ = reinterpret_cast<unsigned char*>(_mm_malloc(widthStep_*height_*sizeof(unsigned char), 16));
+
+	leftCensusImage_ = reinterpret_cast<int*>(malloc(width_*height_*sizeof(int)));
+	rightCensusImage_ = reinterpret_cast<int*>(malloc(width_*height_*sizeof(int)));
 }
 
 void SGMStereo::freeDataBuffer() {
@@ -176,6 +198,17 @@ void SGMStereo::freeDataBuffer() {
 	_mm_free(halfPixelRightMin_);
 	_mm_free(halfPixelRightMax_);
 	_mm_free(sgmBuffer_);
+
+	free(leftDisparityImage_);
+	free(rightDisparityImage_);
+
+	_mm_free(leftSobelImage_);
+	_mm_free(rightSobelImage_);
+
+	free(leftCensusImage_);
+	free(rightCensusImage_);
+
+	initialized_ = false;
 }
 
 void SGMStereo::computeCostImage(const cv::Mat& leftImage, const cv::Mat& rightImage) {
@@ -187,20 +220,16 @@ void SGMStereo::computeCostImage(const cv::Mat& leftImage, const cv::Mat& rightI
 
 
 void SGMStereo::computeLeftCostImage(const unsigned char* leftGrayscaleImage, const unsigned char* rightGrayscaleImage) {
-	unsigned char* leftSobelImage = reinterpret_cast<unsigned char*>(_mm_malloc(widthStep_*height_*sizeof(unsigned char), 16));
-	unsigned char* rightSobelImage = reinterpret_cast<unsigned char*>(_mm_malloc(widthStep_*height_*sizeof(unsigned char), 16));
-	computeCappedSobelImage(leftGrayscaleImage, false, leftSobelImage);
-	computeCappedSobelImage(rightGrayscaleImage, true, rightSobelImage);
+	computeCappedSobelImage(leftGrayscaleImage, false, leftSobelImage_);
+	computeCappedSobelImage(rightGrayscaleImage, true, rightSobelImage_);
 
-	int* leftCensusImage = reinterpret_cast<int*>(malloc(width_*height_*sizeof(int)));
-	int* rightCensusImage = reinterpret_cast<int*>(malloc(width_*height_*sizeof(int)));
-	computeCensusImage(leftGrayscaleImage, leftCensusImage);
-	computeCensusImage(rightGrayscaleImage, rightCensusImage);
+	computeCensusImage(leftGrayscaleImage, leftCensusImage_);
+	computeCensusImage(rightGrayscaleImage, rightCensusImage_);
 
-	unsigned char* leftSobelRow = leftSobelImage;
-	unsigned char* rightSobelRow = rightSobelImage;
-	int* leftCensusRow = leftCensusImage;
-	int* rightCensusRow = rightCensusImage;
+	unsigned char* leftSobelRow = leftSobelImage_;
+	unsigned char* rightSobelRow = rightSobelImage_;
+	int* leftCensusRow = leftCensusImage_;
+	int* rightCensusRow = rightCensusImage_;
 	unsigned short* costImageRow = leftCostImage_;
 	calcTopRowCost(leftSobelRow, leftCensusRow,
 				   rightSobelRow, rightCensusRow,
@@ -209,11 +238,6 @@ void SGMStereo::computeLeftCostImage(const unsigned char* leftGrayscaleImage, co
 	calcRowCosts(leftSobelRow, leftCensusRow,
 				 rightSobelRow, rightCensusRow,
 				 costImageRow);
-
-	_mm_free(leftSobelImage);
-	_mm_free(rightSobelImage);
-	free(leftCensusImage);
-	free(rightCensusImage);
 }
 
 void SGMStereo::computeCappedSobelImage(const unsigned char* image, const bool horizontalFlip, unsigned char* sobelImage) const {
