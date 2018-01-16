@@ -45,8 +45,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-#include <png++/png.hpp>
-
 #include "sgm_stereo/SGMStereo.h"
 
 using std::vector;
@@ -78,17 +76,12 @@ public:
                 const sensor_msgs::CameraInfoConstPtr& left_info,
                 const sensor_msgs::CameraInfoConstPtr& right_info);
 
-  void getOpenCVImage(const sensor_msgs::ImageConstPtr& ros_img, cv::Mat& opencv_img);
-
-  void convertCvMatToPngImage(const cv::Mat& cvmat_image,
-                            png::image<png::rgb_pixel>& png_image);
-
   void convertOpenCV2ROSImage(const cv::Mat& opencv_img,
                               const std::string& image_encoding,
                               sensor_msgs::Image& ros_img);
 
-  void computeSGMStereoDisparity( const sensor_msgs::ImageConstPtr& left_ros_img,
-                                  const sensor_msgs::ImageConstPtr& right_ros_img,
+  void computeSGMStereoDisparity( const sensor_msgs::ImageConstPtr& l_image_msg,
+                                  const sensor_msgs::ImageConstPtr& r_image_msg,
                                   const image_geometry::StereoCameraModel& model,
                                   stereo_msgs::DisparityImage& disp_msg);
 
@@ -135,21 +128,6 @@ StereoSGMNode::StereoSGMNode() :
   pub_pcl_ = nh_.advertise<sensor_msgs::PointCloud2>("points2", 1);
 }
 
-void StereoSGMNode::getOpenCVImage(const sensor_msgs::ImageConstPtr& ros_img, cv::Mat& opencv_img)
-{
-  cv_bridge::CvImagePtr cv_ptr;
-  try
-  {
-    cv_ptr = cv_bridge::toCvCopy(ros_img, sensor_msgs::image_encodings::BGR8);
-  }
-  catch (cv_bridge::Exception& e)
-  {
-    ROS_ERROR("cv_bridge exception: %s", e.what());
-    return;
-  }
-  opencv_img = cv_ptr->image;
-}
-
 void StereoSGMNode::convertOpenCV2ROSImage( const cv::Mat& opencv_img,
                                             const std::string& image_encoding,
                                             sensor_msgs::Image& ros_img)
@@ -161,45 +139,24 @@ void StereoSGMNode::convertOpenCV2ROSImage( const cv::Mat& opencv_img,
   cv_bridge_img.toImageMsg(ros_img);
 }
 
-void StereoSGMNode::convertCvMatToPngImage(const cv::Mat& cvmat_image,
-                            png::image<png::rgb_pixel>& png_image)
-{
-  for (size_t y = 0; y < png_image.get_height(); ++y)
-  {
-    for (size_t x = 0; x < png_image.get_width(); ++x)
-    {
-      png_image[y][x] = png::rgb_pixel( cvmat_image.at<cv::Vec3b>(y,x)[2],
-                                        cvmat_image.at<cv::Vec3b>(y,x)[1],
-                                        cvmat_image.at<cv::Vec3b>(y,x)[0]);
-    }
-  }
-}
-
-void StereoSGMNode::computeSGMStereoDisparity(const sensor_msgs::ImageConstPtr& left_ros_img,
-                                              const sensor_msgs::ImageConstPtr& right_ros_img,
+void StereoSGMNode::computeSGMStereoDisparity(const sensor_msgs::ImageConstPtr& l_image_msg,
+                                              const sensor_msgs::ImageConstPtr& r_image_msg,
                                               const image_geometry::StereoCameraModel& model,
                                               stereo_msgs::DisparityImage& disp_msg)
 {
-  cv::Mat left_opencv_img_color_, right_opencv_img_color_;
-  getOpenCVImage(left_ros_img, left_opencv_img_color_);
-  getOpenCVImage(right_ros_img, right_opencv_img_color_);
+  const auto l_image = cv_bridge::toCvShare(l_image_msg, sensor_msgs::image_encodings::MONO8)->image;
+  const auto r_image = cv_bridge::toCvShare(r_image_msg, sensor_msgs::image_encodings::MONO8)->image;
 
-  png::image<png::rgb_pixel> left_png_img(left_opencv_img_color_.cols, left_opencv_img_color_.rows);
-  convertCvMatToPngImage(left_opencv_img_color_, left_png_img);
+  float disparityImage[l_image.cols * l_image.rows];
 
-  png::image<png::rgb_pixel> right_png_img(right_opencv_img_color_.cols, right_opencv_img_color_.rows);
-  convertCvMatToPngImage(right_opencv_img_color_, right_png_img);
-
-  float disparityImage[left_opencv_img_color_.cols * left_opencv_img_color_.rows];
-
-  sgm.compute(left_png_img, right_png_img, disparityImage);
-  cv::Mat disparity(left_opencv_img_color_.rows, left_opencv_img_color_.cols, CV_32F, disparityImage);
+  sgm.compute(l_image, r_image, disparityImage);
+  cv::Mat disparity(l_image.rows, l_image.cols, CV_32F, disparityImage);
 
   cv::Mat disparity_uc;
   disparity.convertTo(disparity_uc, CV_8UC1);
 
   // disp_msg  = boost::make_shared<stereo_msgs::DisparityImage>();
-  disp_msg.header            = left_ros_img->header;
+  disp_msg.header            = l_image_msg->header;
 
   disp_msg.f                 = model.left().fx();
   disp_msg.T                 = model.baseline();
@@ -207,9 +164,9 @@ void StereoSGMNode::computeSGMStereoDisparity(const sensor_msgs::ImageConstPtr& 
   disp_msg.max_disparity     = 127.0;
   disp_msg.delta_d           = 0.0625;
 
-  disp_msg.image.header      = left_ros_img->header;
-  disp_msg.image.height      = left_opencv_img_color_.rows;
-  disp_msg.image.width       = left_opencv_img_color_.cols;
+  disp_msg.image.header      = l_image_msg->header;
+  disp_msg.image.height      = l_image.rows;
+  disp_msg.image.width       = l_image.cols;
 
   convertOpenCV2ROSImage(disparity, sensor_msgs::image_encodings::TYPE_32FC1, disp_msg.image);
 }
