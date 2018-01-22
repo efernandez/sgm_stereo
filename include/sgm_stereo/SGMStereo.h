@@ -24,6 +24,9 @@ public:
 	SGMStereo();
 	~SGMStereo();
 
+	void setParams(int disparity_total, double disparity_factor, int sobel_cap_value, int census_window_radius, double census_weight_factor,
+										 int aggregration_window_radius, int smoothness_penalty_small, int smoothness_penalty_large, int consistency_threshold);
+
 	void setDisparityTotal(const int disparityTotal);
 	void setDisparityFactor(const double disparityFactor);
 	void setDataCostParameters(const int sobelCapValue,

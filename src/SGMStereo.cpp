@@ -57,6 +57,22 @@ SGMStereo::~SGMStereo() {
 	}
 }
 
+void SGMStereo::setParams(int disparity_total, double disparity_factor, int sobel_cap_value,
+	                        int census_window_radius, double census_weight_factor,
+										      int aggregration_window_radius, int smoothness_penalty_small,
+										      int smoothness_penalty_large, int consistency_threshold)
+{
+	disparityTotal_ = disparity_total;
+	disparityFactor_ = disparity_factor;
+	sobelCapValue_ = sobel_cap_value;
+	censusWindowRadius_ = census_window_radius;
+	censusWeightFactor_ = census_weight_factor;
+	aggregationWindowRadius_ = aggregration_window_radius;
+	smoothnessPenaltySmall_ = smoothness_penalty_small;
+	smoothnessPenaltyLarge_ = smoothness_penalty_large;
+	consistencyThreshold_ = consistency_threshold;
+}
+
 void SGMStereo::setDisparityTotal(const int disparityTotal) {
 	if (disparityTotal <= 0 || disparityTotal%16 != 0) {
 		throw std::invalid_argument("[SGMStereo::setDisparityTotal] the number of disparities must be a multiple of 16");
