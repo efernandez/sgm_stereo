@@ -8,10 +8,10 @@ aggregration_window_radius: 2
 smoothness_penalty_small: 100
 smoothness_penalty_large: 1600
 consistency_threshold: 1
+max_speckle_size: 500
 enforce_left_right_consistency: true
 
 # SGM Node params
-publish_sgm_pcl: false
 display_debugging_images: false
 rotate_images: true
 

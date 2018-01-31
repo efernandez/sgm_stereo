@@ -59,6 +59,7 @@ void StereoSGMNode::onInit()
   int smoothness_penalty_small = 100;
   int smoothness_penalty_large = 1600;
   int consistency_threshold = 1;
+  int max_speckle_size = 100;
   bool enforce_left_right_consistency = true;
 
   nh_priv.param<int>("disparity_total", disparity_total, disparity_total);
@@ -69,11 +70,11 @@ void StereoSGMNode::onInit()
   nh_priv.param<int>("aggregration_window_radius", aggregration_window_radius, aggregration_window_radius);
   nh_priv.param<int>("smoothness_penalty_small", smoothness_penalty_small, smoothness_penalty_small);
   nh_priv.param<int>("smoothness_penalty_large", smoothness_penalty_large, smoothness_penalty_large);
-  nh_priv.param<int>("consistency_threshold", consistency_threshold, 1);
+  nh_priv.param<int>("consistency_threshold", consistency_threshold, consistency_threshold);
+  nh_priv.param<int>("max_speckle_size", max_speckle_size, max_speckle_size);
   nh_priv.param<bool>("enforce_left_right_consistency", enforce_left_right_consistency, enforce_left_right_consistency);
 
   // SGM Node Params
-  nh_priv.param<bool>("publish_sgm_pcl", publish_sgm_pcl_, false);
   nh_priv.param<int>("textureless_thresh", textureless_thresh_, 300);
   nh_priv.param<bool>("filter_textureless_regions", filter_textureless_regions_, false);
   nh_priv.param<bool>("display_debugging_images", display_debugging_images_, false);
@@ -82,7 +83,8 @@ void StereoSGMNode::onInit()
   sgm_.setParams(disparity_total, disparity_factor, sobel_cap_value,
                  census_window_radius, census_weight_factor,
                  aggregration_window_radius, smoothness_penalty_small,
-                 smoothness_penalty_large, consistency_threshold);
+                 smoothness_penalty_large, consistency_threshold,
+                 max_speckle_size);
 
   sgm_.setEnforceLeftRightConsistency(enforce_left_right_consistency);
 
@@ -92,11 +94,6 @@ void StereoSGMNode::onInit()
   sync_->registerCallback(boost::bind(&StereoSGMNode::callback, this, _1, _2, _3, _4));
 
   pub_disparity_ = nh_.advertise<stereo_msgs::DisparityImage>("disparity", 1);
-
-  if (publish_sgm_pcl_)
-  {
-    pub_pcl_ = nh_.advertise<sensor_msgs::PointCloud2>("points2", 1);
-  }
 }
 
 void StereoSGMNode::convertOpenCV2ROSImage( const cv::Mat& opencv_img,
@@ -187,109 +184,6 @@ bool StereoSGMNode::isValidPoint(const cv::Vec3f& pt)
   return pt[2] != image_geometry::StereoCameraModel::MISSING_Z && !std::isinf(pt[2]);
 }
 
-void StereoSGMNode::computePointCloudFromDisparity( const sensor_msgs::ImageConstPtr& l_image_msg,
-                                                    const image_geometry::StereoCameraModel& model,
-                                                    const stereo_msgs::DisparityImage& disp_msg,
-                                                    sensor_msgs::PointCloud2& points_msg)
-{
-  const cv::Mat_<float> dmat( disp_msg.image.height,
-                              disp_msg.image.width,
-                              (float*)&disp_msg.image.data[0],
-                              disp_msg.image.step);
-  cv::Mat_<cv::Vec3f> mat;
-  model_.projectDisparityImageTo3d(dmat, mat, true);
-
-  points_msg.header = disp_msg.header;
-  points_msg.height = mat.rows;
-  points_msg.width  = mat.cols;
-  points_msg.is_bigendian = false;
-  points_msg.is_dense = false; // there may be invalid points
-
-  sensor_msgs::PointCloud2Modifier pcd_modifier(points_msg);
-  pcd_modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
-
-  sensor_msgs::PointCloud2Iterator<float> iter_x(points_msg, "x");
-  sensor_msgs::PointCloud2Iterator<float> iter_y(points_msg, "y");
-  sensor_msgs::PointCloud2Iterator<float> iter_z(points_msg, "z");
-  sensor_msgs::PointCloud2Iterator<uint8_t> iter_r(points_msg, "r");
-  sensor_msgs::PointCloud2Iterator<uint8_t> iter_g(points_msg, "g");
-  sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(points_msg, "b");
-
-  float bad_point = std::numeric_limits<float>::quiet_NaN ();
-  for (int v = 0; v < mat.rows; ++v)
-  {
-    for (int u = 0; u < mat.cols; ++u, ++iter_x, ++iter_y, ++iter_z)
-    {
-      if (isValidPoint(mat(v,u)))
-      {
-        // x,y,z
-        *iter_x = mat(v, u)[0];
-        *iter_y = mat(v, u)[1];
-        *iter_z = mat(v, u)[2];
-      }
-      else
-      {
-        *iter_x = *iter_y = *iter_z = bad_point;
-      }
-    }
-  }
-
-  // Fill in color
-  namespace enc = sensor_msgs::image_encodings;
-  const std::string& encoding = l_image_msg->encoding;
-  if (encoding == enc::MONO8)
-  {
-    const cv::Mat_<uint8_t> color(l_image_msg->height, l_image_msg->width,
-                                  (uint8_t*)&l_image_msg->data[0],
-                                  l_image_msg->step);
-    for (int v = 0; v < mat.rows; ++v)
-    {
-      for (int u = 0; u < mat.cols; ++u, ++iter_r, ++iter_g, ++iter_b)
-      {
-        uint8_t g = color(v,u);
-        *iter_r = *iter_g = *iter_b = g;
-      }
-    }
-  }
-  else if (encoding == enc::RGB8)
-  {
-    const cv::Mat_<cv::Vec3b> color(l_image_msg->height, l_image_msg->width,
-                                    (cv::Vec3b*)&l_image_msg->data[0],
-                                    l_image_msg->step);
-    for (int v = 0; v < mat.rows; ++v)
-    {
-      for (int u = 0; u < mat.cols; ++u, ++iter_r, ++iter_g, ++iter_b)
-      {
-        const cv::Vec3b& rgb = color(v,u);
-        *iter_r = rgb[0];
-        *iter_g = rgb[1];
-        *iter_b = rgb[2];
-      }
-    }
-  }
-  else if (encoding == enc::BGR8)
-  {
-    const cv::Mat_<cv::Vec3b> color(l_image_msg->height, l_image_msg->width,
-                                    (cv::Vec3b*)&l_image_msg->data[0],
-                                    l_image_msg->step);
-    for (int v = 0; v < mat.rows; ++v)
-    {
-      for (int u = 0; u < mat.cols; ++u, ++iter_r, ++iter_g, ++iter_b)
-      {
-        const cv::Vec3b& bgr = color(v,u);
-        *iter_r = bgr[2];
-        *iter_g = bgr[1];
-        *iter_b = bgr[0];
-      }
-    }
-  }
-  else
-  {
-    ROS_WARN_THROTTLE(30, "Could not fill color channel of the point cloud, "
-                          "unsupported encoding '%s'", encoding.c_str());
-  }
-}
-
 void StereoSGMNode::extractTextureLessRegion(const cv::Mat& edge_img, cv::Mat& textureless_mask)
 {
   for (int x = 0; x < edge_img.cols; x++)
@@ -310,7 +204,6 @@ void StereoSGMNode::extractTextureLessRegion(const cv::Mat& edge_img, cv::Mat& t
       cv::Mat textureless_mask_rot = textureless_mask.clone();
       cv::flip(textureless_mask_rot, textureless_mask_rot, -1);
       cv::imshow("textureless_mask", textureless_mask_rot);
-
     }
     else
     {
@@ -368,7 +261,6 @@ void StereoSGMNode::extractSobelVerticalEdges(const cv::Mat& gray_img, std::stri
   cv::Sobel(gray_img, grad_y, ddepth, 0, 1, kernel_size, scale, delta, cv::BORDER_DEFAULT );
   cv::convertScaleAbs(grad_y, abs_grad_y);
 
-
   // Total Gradient (approximate)
   cv::addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
 
@@ -397,19 +289,15 @@ void StereoSGMNode::callback(const sensor_msgs::ImageConstPtr& left_ros_img,
   model_.fromCameraInfo(left_info, right_info);
 
   stereo_msgs::DisparityImage disp_msg;
-  tic();
-  computeSGMStereoDisparity(left_ros_img, right_ros_img, model_, disp_msg);
-  toc("computeSGMStereoDisparity");
-  pub_disparity_.publish(disp_msg);
 
-  if (publish_sgm_pcl_)
-  {
-    sensor_msgs::PointCloud2 pcl_msg;
-    tic();
-    computePointCloudFromDisparity(left_ros_img, model_, disp_msg, pcl_msg);
-    toc("computePointCloudFromDisparity");
-    pub_pcl_.publish(pcl_msg);
-  }
+  // Time SGM Stereo Disparity Computation
+  ros::Time begin = ros::Time::now();
+  computeSGMStereoDisparity(left_ros_img, right_ros_img, model_, disp_msg);
+  ros::Time end = ros::Time::now();
+  ros::Duration duration = end - begin;
+  ROS_INFO("Duration of [computeSGMStereoDisparity]: %.2f sec", duration.toSec());
+
+  pub_disparity_.publish(disp_msg);
 }
 
 }  // namespace sgm_stereo

@@ -51,21 +51,6 @@
 #include "nodelet/nodelet.h"
 #include "sgm_stereo/SGMStereo.h"
 
-using std::vector;
-
-// Just a timer utility
-std::stack<clock_t> tictoc_stack;
-void tic()
-{
-  tictoc_stack.push(clock());
-}
-void toc(std::string s)
-{
-  ROS_INFO_STREAM("Time taken by routine : "<<s<< " "
-                  <<((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC);
-  tictoc_stack.pop();
-}
-//
 
 namespace sgm_stereo
 {
@@ -87,15 +72,10 @@ private:
                               const std::string& image_encoding,
                               sensor_msgs::Image& ros_img);
 
-  void computeSGMStereoDisparity( const sensor_msgs::ImageConstPtr& l_image_msg,
+  void computeSGMStereoDisparity(const sensor_msgs::ImageConstPtr& l_image_msg,
                                   const sensor_msgs::ImageConstPtr& r_image_msg,
                                   const image_geometry::StereoCameraModel& model,
                                   stereo_msgs::DisparityImage& disp_msg);
-
-  void computePointCloudFromDisparity( const sensor_msgs::ImageConstPtr& l_image_msg,
-                                                    const image_geometry::StereoCameraModel& model,
-                                                    const stereo_msgs::DisparityImage& disp_msg,
-                                                    sensor_msgs::PointCloud2& points_msg);
 
   bool isValidPoint(const cv::Vec3f& pt);
 
@@ -124,8 +104,7 @@ protected:
   image_geometry::StereoCameraModel model_;
 
   SGMStereo sgm_;
-  ros::Publisher pub_disparity_, pub_pcl_;
-  bool publish_sgm_pcl_;
+  ros::Publisher pub_disparity_;
   bool display_debugging_images_;
   bool rotate_images_;
 
